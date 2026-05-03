@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.agredila.appa.agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Replace /opt/homebrew/bin/node with your actual Node path if different (type 'which node' in terminal) -->
+        <string>/usr/local/bin/node</string>
+        <!-- Replace this with the absolute path to where you clone/download this repo -->
+        <string>/Users/YOUR_USERNAME/Documents/contextify/desktop-agent/server.js</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/appa-agent.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/appa-agent.err</string>
+</dict>
+</plist>

@@ -190,7 +190,7 @@ class AppaCat {
     this.bubbleContent.innerHTML = `
       Menurutku kamu ingin mengubah file lokal di Mac.<br><br>
       <b>Tugas:</b> "${taskString}"<br><br>
-      Izinkan Appa menjalankan script ini?
+      Izinkan Appa menjalankan ini?
     `;
     
     const confirmDiv = document.createElement('div');
@@ -202,16 +202,27 @@ class AppaCat {
     
     this.bubbleContent.appendChild(confirmDiv);
 
-    confirmDiv.querySelector('.appa-btn-yes').addEventListener('click', () => {
-       if (window.executeAppaLocalTask) {
-          window.executeAppaLocalTask(taskString);
-       } else {
-          this.say("Server lokal (Node.js) belum terhubung! Install desktop agent dulu meow.");
+    confirmDiv.querySelector('.appa-btn-yes').addEventListener('click', async () => {
+       this.bubbleContent.innerHTML = "*Menghubungi server lokal...*";
+       try {
+         const res = await fetch('http://localhost:3210/execute', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ command: taskString, type: 'simulation' })
+         });
+         const data = await res.json();
+         if (data.success) {
+           this.say(`Purrrfect! Tugas selesai: ${data.message}`, true);
+         } else {
+           this.say("Meow... Ada yang salah di server.", true);
+         }
+       } catch(e) {
+         this.say("Gagal terhubung ke Mac kamu. Pastikan folder desktop-agent sudah di-run (LaunchAgent) ya meow!", true);
        }
     });
 
     confirmDiv.querySelector('.appa-btn-no').addEventListener('click', () => {
-       this.say("Oke, dibatalkan! Meow.");
+       this.say("Oke, dibatalkan! Meow.", true);
     });
   }
 
