@@ -49,24 +49,31 @@
 /* Sidebar Container */
 #ctx-sidebar {
   position: fixed;
-  top: 0;
-  right: -340px; /* Hide off-screen initially */
   width: 320px;
-  height: 100vh;
+  max-height: 85vh;
   background-color: var(--ctx-bg);
   box-shadow: var(--ctx-shadow);
   z-index: var(--ctx-z-index);
-  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   font-family: var(--ctx-font);
   color: var(--ctx-text);
   box-sizing: border-box;
-  border-left: 1px solid var(--ctx-border);
+  border-radius: 12px;
+  border: 1px solid var(--ctx-border);
+  
+  /* Floating animation */
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.95);
+  transform-origin: center;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
 }
 
 #ctx-sidebar.ctx-open {
-  right: 0;
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
 }
 
 /* Header */

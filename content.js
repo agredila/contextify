@@ -416,6 +416,11 @@ function makeDraggable(btn) {
       
       btn.style.left = newLeft + 'px';
       btn.style.top = newTop + 'px';
+      
+      // Sinkronisasikan posisi sidebar jika sedang terbuka saat di-drag
+      if (isSidebarOpen) {
+        positionSidebar();
+      }
     }
   });
 
@@ -492,11 +497,46 @@ function renderActionButtons() {
 }
 
 // --- UI Actions ---
+function positionSidebar() {
+  const sidebar = document.getElementById('ctx-sidebar');
+  const toggleBtn = document.getElementById('ctx-toggle-btn');
+  if (!sidebar || !toggleBtn) return;
+
+  const btnRect = toggleBtn.getBoundingClientRect();
+  const sidebarWidth = 320;
+  const margin = 16;
+  
+  let newLeft;
+  // Jika tombol ada di paruh kanan layar, buka panel di sebelah kirinya
+  if (btnRect.left > window.innerWidth / 2) {
+    newLeft = btnRect.left - sidebarWidth - margin;
+  } else {
+    // Jika di kiri, buka di sebelah kanannya
+    newLeft = btnRect.right + margin;
+  }
+  
+  // Pastikan panel tidak keluar layar (horizontal bounds)
+  newLeft = Math.max(margin, Math.min(newLeft, window.innerWidth - sidebarWidth - margin));
+  sidebar.style.left = newLeft + 'px';
+
+  // Penempatan Vertikal
+  // Jika tombol ada di paruh bawah layar, sejajarkan bagian bawah panel dengan bawah tombol
+  if (btnRect.top > window.innerHeight / 2) {
+    sidebar.style.top = 'auto';
+    sidebar.style.bottom = (window.innerHeight - btnRect.bottom) + 'px';
+  } else {
+    // Sejajarkan bagian atas panel dengan atas tombol
+    sidebar.style.top = btnRect.top + 'px';
+    sidebar.style.bottom = 'auto';
+  }
+}
+
 function toggleSidebar() {
   const sidebar = document.getElementById('ctx-sidebar');
   isSidebarOpen = !isSidebarOpen;
   
   if (isSidebarOpen) {
+    positionSidebar();
     sidebar.classList.add('ctx-open');
     updateUsageDisplay(); // Refresh usage when opening
   } else {
