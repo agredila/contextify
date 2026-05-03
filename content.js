@@ -270,8 +270,18 @@ function injectUI() {
   const toggleBtn = document.createElement('div');
   toggleBtn.id = 'ctx-toggle-btn';
   toggleBtn.innerHTML = '✦';
-  toggleBtn.addEventListener('click', toggleSidebar);
   document.body.appendChild(toggleBtn);
+  
+  // Make button draggable and load saved position
+  makeDraggable(toggleBtn);
+  chrome.storage.local.get(['togglePosition'], (result) => {
+    if (result.togglePosition) {
+      toggleBtn.style.right = 'auto';
+      toggleBtn.style.bottom = 'auto';
+      toggleBtn.style.left = result.togglePosition.left + 'px';
+      toggleBtn.style.top = result.togglePosition.top + 'px';
+    }
+  });
 
   // Sidebar Container
   const sidebar = document.createElement('div');
@@ -356,6 +366,87 @@ function injectUI() {
   document.getElementById('ctx-lang-toggle').addEventListener('change', (e) => {
     targetLanguage = e.target.value;
     updateLanguageUI();
+  });
+}
+
+// --- Draggable Button Logic ---
+function makeDraggable(btn) {
+  let isDragging = false;
+  let hasMoved = false;
+  let startX, startY, initialLeft, initialTop;
+
+  btn.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    hasMoved = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    
+    const rect = btn.getBoundingClientRect();
+    initialLeft = rect.left;
+    initialTop = rect.top;
+    
+    btn.style.transition = 'none'; // Disable transition during drag for smoothness
+    e.preventDefault(); // Prevent text selection
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    
+    // Consider it a drag only if moved more than 5px (prevents accidental drags on click)
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      hasMoved = true;
+    }
+    
+    if (hasMoved) {
+      btn.style.right = 'auto';
+      btn.style.bottom = 'auto';
+      
+      // Keep within window bounds
+      let newLeft = initialLeft + dx;
+      let newTop = initialTop + dy;
+      
+      const maxX = window.innerWidth - btn.offsetWidth;
+      const maxY = window.innerHeight - btn.offsetHeight;
+      
+      newLeft = Math.max(0, Math.min(newLeft, maxX));
+      newTop = Math.max(0, Math.min(newTop, maxY));
+      
+      btn.style.left = newLeft + 'px';
+      btn.style.top = newTop + 'px';
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    
+    // Re-enable hover transitions
+    btn.style.transition = 'transform 0.2s ease, background-color 0.2s ease';
+    
+    if (hasMoved) {
+      // Save the new position to storage
+      chrome.storage.local.set({
+        togglePosition: {
+          left: btn.offsetLeft,
+          top: btn.offsetTop
+        }
+      });
+    }
+  });
+  
+  // Custom click handler to distinguish between clicking and dragging
+  btn.addEventListener('click', (e) => {
+    if (hasMoved) {
+      // It was a drag, don't open the sidebar
+      e.stopPropagation();
+      e.preventDefault();
+    } else {
+      // It was a clean click, open the sidebar
+      toggleSidebar();
+    }
   });
 }
 
