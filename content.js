@@ -81,15 +81,50 @@ function detectMode() {
 }
 
 // --- Context Extraction ---
-function getContext() {
+async function getContext() {
   const selection = window.getSelection().toString().trim();
   if (selection) {
     return selection;
   }
   
+  // PDF Extraction Logic
+  const isPDF = window.location.pathname.toLowerCase().endsWith('.pdf') || document.contentType === 'application/pdf';
+  if (isPDF) {
+    try {
+      // Initialize PDF.js worker
+      if (typeof pdfjsLib !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.js');
+      }
+
+      // Update UI loading state manually before extraction starts
+      const loadingDiv = document.getElementById('ctx-loading');
+      if (loadingDiv) loadingDiv.innerText = 'Membaca dokumen PDF...';
+
+      const loadingTask = pdfjsLib.getDocument(window.location.href);
+      const pdf = await loadingTask.promise;
+      let fullText = '';
+      
+      // Extract up to 10 pages to avoid freezing the browser or hitting context limits too fast
+      const maxPages = Math.min(pdf.numPages, 10); 
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\\n';
+      }
+
+      if (loadingDiv) loadingDiv.innerText = 'Memproses dengan AI...';
+      return `[Dokumen PDF - ${window.location.href}]\\n\\n${fullText.substring(0, 30000)}`; // Max 30k chars
+    } catch (error) {
+      console.error('Error extracting PDF text:', error);
+      showError("Gagal membaca PDF. Coba block/highlight teks secara manual.");
+      return null;
+    }
+  }
+  
   const title = document.title;
-  const bodyText = document.body.innerText.substring(0, 500);
-  return `Title: ${title}\n\nContent:\n${bodyText}`;
+  const bodyText = document.body.innerText.substring(0, 5000); // Increased from 500 to 5000 chars for better context
+  return `Title: ${title}\\n\\nContent:\\n${bodyText}`;
 }
 
 // --- Storage & Usage Tracking ---
@@ -128,13 +163,14 @@ async function callAI(actionPrompt) {
     return;
   }
 
-  const context = getContext();
+  showLoading(true);
+
+  const context = await getContext();
   if (!context) {
+    showLoading(false);
     showError("Tidak ada teks yang ditemukan untuk dianalisis.");
     return;
   }
-
-  showLoading(true);
 
   try {
     const response = await fetch(WORKER_URL, {
@@ -272,6 +308,7 @@ function showLoading(isLoading) {
   const resultContainer = document.getElementById('ctx-result-container');
   
   if (isLoading) {
+    loading.innerText = 'Memproses...'; // Reset text
     loading.classList.remove('ctx-hidden');
     resultContainer.classList.add('ctx-hidden');
   } else {
