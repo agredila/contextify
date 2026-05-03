@@ -1,6 +1,6 @@
 // --- Configuration ---
 const WORKER_URL = "https://contextify.nadilasetiabudiarto.workers.dev/";
-const MAX_ACTIONS_PER_MONTH = 20;
+const MAX_ACTIONS_PER_MONTH = 999999; // Set to very high number for personal unlimited use
 
 // --- Modes & Prompts Configuration ---
 const MODES = {
@@ -260,7 +260,8 @@ async function updateUsageDisplay() {
     // Disable buttons
     document.querySelectorAll('.ctx-action-btn').forEach(btn => btn.disabled = true);
   } else {
-    usageDiv.innerText = `${usage.actionsUsed} / ${MAX_ACTIONS_PER_MONTH} actions used this month`;
+    // Hide usage counter since it's unlimited for now, or just show "Unlimited for Personal Use"
+    usageDiv.innerHTML = `<span style="color: var(--ctx-primary); font-weight: 500;">Unlimited Personal Mode</span>`;
     // Enable buttons
     document.querySelectorAll('.ctx-action-btn').forEach(btn => btn.disabled = false);
   }
