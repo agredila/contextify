@@ -1,0 +1,219 @@
+/* Contextify Sidebar Styles - Vanilla CSS */
+
+:root {
+  --ctx-primary: #7C3AED;
+  --ctx-primary-hover: #6D28D9;
+  --ctx-bg: #FFFFFF;
+  --ctx-surface: #F3F4F6;
+  --ctx-text: #1F2937;
+  --ctx-text-light: #6B7280;
+  --ctx-border: #E5E7EB;
+  --ctx-danger: #EF4444;
+  --ctx-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --ctx-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ctx-z-index: 2147483647; /* Max z-index to stay on top */
+}
+
+/* Floating Toggle Button */
+#ctx-toggle-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: var(--ctx-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: var(--ctx-shadow);
+  z-index: var(--ctx-z-index);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  user-select: none;
+  font-family: var(--ctx-font);
+}
+
+#ctx-toggle-btn:hover {
+  background-color: var(--ctx-primary-hover);
+  transform: scale(1.05);
+}
+
+/* Sidebar Container */
+#ctx-sidebar {
+  position: fixed;
+  top: 0;
+  right: -340px; /* Hide off-screen initially */
+  width: 320px;
+  height: 100vh;
+  background-color: var(--ctx-bg);
+  box-shadow: var(--ctx-shadow);
+  z-index: var(--ctx-z-index);
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--ctx-font);
+  color: var(--ctx-text);
+  box-sizing: border-box;
+  border-left: 1px solid var(--ctx-border);
+}
+
+#ctx-sidebar.ctx-open {
+  right: 0;
+}
+
+/* Header */
+.ctx-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ctx-border);
+}
+
+.ctx-mode-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--ctx-surface);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ctx-icon {
+  font-size: 16px;
+}
+
+.ctx-close {
+  font-size: 24px;
+  color: var(--ctx-text-light);
+  cursor: pointer;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.ctx-close:hover {
+  color: var(--ctx-text);
+}
+
+/* Usage Counter */
+.ctx-usage {
+  padding: 12px 20px;
+  font-size: 13px;
+  color: var(--ctx-text-light);
+  border-bottom: 1px solid var(--ctx-border);
+  text-align: center;
+}
+
+.ctx-limit-reached {
+  color: var(--ctx-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Actions List */
+.ctx-actions {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.ctx-action-btn {
+  background-color: var(--ctx-surface);
+  border: 1px solid transparent;
+  color: var(--ctx-text);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.ctx-action-btn:hover:not(:disabled) {
+  background-color: #E0E7FF;
+  color: var(--ctx-primary);
+  border-color: #C7D2FE;
+}
+
+.ctx-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Loading State */
+.ctx-loading {
+  padding: 20px;
+  text-align: center;
+  color: var(--ctx-text-light);
+  font-size: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctx-loading::after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ctx-border);
+  border-top-color: var(--ctx-primary);
+  border-radius: 50%;
+  animation: ctx-spin 1s linear infinite;
+}
+
+@keyframes ctx-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Result Area */
+.ctx-result-container {
+  margin: 0 20px 20px 20px;
+  padding: 16px;
+  background-color: var(--ctx-surface);
+  border-radius: 8px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  border: 1px solid var(--ctx-border);
+}
+
+.ctx-result-text {
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap; /* Preserve newlines */
+  overflow-wrap: break-word;
+  flex-grow: 1;
+}
+
+.ctx-copy-btn {
+  align-self: flex-end;
+  background-color: var(--ctx-bg);
+  border: 1px solid var(--ctx-border);
+  color: var(--ctx-text);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.ctx-copy-btn:hover {
+  background-color: var(--ctx-surface);
+}
+
+/* Utility */
+.ctx-hidden {
+  display: none !important;
+}
