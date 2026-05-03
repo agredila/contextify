@@ -1,0 +1,214 @@
+// Appa the Cat Logic
+// Based loosely on the classic "Oneko" desktop pet mechanics
+
+class AppaCat {
+  constructor() {
+    this.container = null;
+    this.sprite = null;
+    this.bubble = null;
+    this.bubbleContent = null;
+    
+    // Physics & State
+    this.x = window.innerWidth / 2;
+    this.y = window.innerHeight - 50;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.speed = 4;
+    this.idleTime = 0;
+    this.state = 'idle'; // idle, moving, sleeping
+    this.frameCount = 0;
+    
+    // Sprite positions from oneko.gif (32x32 frames)
+    this.spriteMap = {
+      idle: [[-3, -3]],
+      alert: [[-35, -3]],
+      moveRight: [[-3, -99], [-35, -99]],
+      moveLeft: [[-3, -131], [-35, -131]],
+      moveUp: [[-3, -67], [-35, -67]],
+      moveDown: [[-3, -35], [-35, -35]],
+      sleep: [[-67, -3], [-99, -3]]
+    };
+
+    this.init();
+  }
+
+  init() {
+    this.injectDOM();
+    this.bindEvents();
+    this.startLoop();
+    
+    // Greeting
+    setTimeout(() => {
+      this.say("Meow! Saya Appa. Ada yang bisa dibantu?", true);
+    }, 1000);
+  }
+
+  injectDOM() {
+    // Container
+    this.container = document.createElement('div');
+    this.container.id = 'appa-container';
+    this.container.style.left = this.x + 'px';
+    this.container.style.top = this.y + 'px';
+
+    // Sprite
+    this.sprite = document.createElement('div');
+    this.sprite.id = 'appa-sprite';
+    
+    // Fix sprite URL dynamically based on Chrome extension URL
+    const spriteUrl = chrome.runtime.getURL('assets/appa.gif');
+    this.sprite.style.backgroundImage = `url('${spriteUrl}')`;
+
+    // Speech Bubble
+    this.bubble = document.createElement('div');
+    this.bubble.id = 'appa-bubble';
+    
+    this.bubble.innerHTML = `
+      <div class="appa-bubble-header">
+        Appa 🐾
+        <span class="appa-close-btn" id="appa-close">&times;</span>
+      </div>
+      <div class="appa-bubble-content" id="appa-content">...</div>
+      <div class="appa-input-wrapper">
+        <button class="appa-action-btn appa-mic-btn" id="appa-mic">🎤</button>
+        <input type="text" id="appa-chat-input" placeholder="Tanya Appa...">
+        <button class="appa-action-btn" id="appa-send">➤</button>
+      </div>
+    `;
+
+    this.container.appendChild(this.sprite);
+    this.container.appendChild(this.bubble);
+    document.body.appendChild(this.container);
+
+    this.bubbleContent = document.getElementById('appa-content');
+  }
+
+  bindEvents() {
+    // Mouse tracking
+    document.addEventListener('mousemove', (e) => {
+      // Only track if not hovering over Appa's bubble
+      if (!this.bubble.contains(e.target) && !this.sprite.contains(e.target)) {
+        this.targetX = e.clientX;
+        this.targetY = e.clientY - 20; // Aim slightly above cursor
+        this.idleTime = 0;
+        
+        if (this.state === 'sleep') {
+          this.setSprite('alert', 0);
+        }
+      }
+    });
+
+    // Clicking Appa toggles bubble
+    this.sprite.addEventListener('click', () => {
+      this.idleTime = 0;
+      if (this.bubble.classList.contains('visible')) {
+        this.hideBubble();
+      } else {
+        this.say("Meow? Ada tugas untukku?");
+      }
+    });
+
+    // Bubble close
+    document.getElementById('appa-close').addEventListener('click', () => {
+      this.hideBubble();
+    });
+
+    // Chat functionality (Placeholder for Phase 2)
+    const input = document.getElementById('appa-chat-input');
+    const sendBtn = document.getElementById('appa-send');
+
+    sendBtn.addEventListener('click', () => this.handleChat(input.value));
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.handleChat(input.value);
+    });
+  }
+
+  handleChat(text) {
+    if (!text.trim()) return;
+    document.getElementById('appa-chat-input').value = '';
+    this.say(`*Berpikir tentang: "${text}"*...`);
+    
+    // Call AI in the background (will connect to main content.js later)
+    if (window.askAppa) {
+      window.askAppa(text);
+    }
+  }
+
+  say(text, autoHide = false) {
+    this.bubbleContent.innerHTML = text;
+    this.bubble.classList.add('visible');
+    
+    if (autoHide) {
+      setTimeout(() => this.hideBubble(), 5000);
+    }
+  }
+
+  hideBubble() {
+    this.bubble.classList.remove('visible');
+  }
+
+  setSprite(animName, frameIdx) {
+    const frames = this.spriteMap[animName];
+    if (!frames) return;
+    const frame = frames[frameIdx % frames.length];
+    this.sprite.style.backgroundPosition = `${frame[0]}px ${frame[1]}px`;
+  }
+
+  updatePhysics() {
+    const dx = this.targetX - this.x;
+    const dy = this.targetY - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // If close enough to target, stop and idle
+    if (distance < 50) {
+      this.idleTime++;
+      
+      if (this.idleTime > 150) { // Sleep after a while
+        this.state = 'sleep';
+        this.setSprite('sleep', Math.floor(this.frameCount / 20));
+      } else {
+        this.state = 'idle';
+        this.setSprite('idle', 0);
+      }
+      return;
+    }
+
+    // Move towards target
+    this.state = 'moving';
+    this.idleTime = 0;
+    
+    const vx = (dx / distance) * this.speed;
+    const vy = (dy / distance) * this.speed;
+    
+    this.x += vx;
+    this.y += vy;
+
+    // Determine direction for sprite
+    let anim = 'idle';
+    if (Math.abs(vx) > Math.abs(vy)) {
+      anim = vx > 0 ? 'moveRight' : 'moveLeft';
+    } else {
+      anim = vy > 0 ? 'moveDown' : 'moveUp';
+    }
+
+    // Update position and animate
+    this.container.style.left = this.x + 'px';
+    this.container.style.top = this.y + 'px';
+    this.setSprite(anim, Math.floor(this.frameCount / 5));
+  }
+
+  startLoop() {
+    const loop = () => {
+      this.frameCount++;
+      this.updatePhysics();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+}
+
+// Initialize when ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => { window.appaInstance = new AppaCat(); });
+} else {
+  window.appaInstance = new AppaCat();
+}
