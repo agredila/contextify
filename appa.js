@@ -9,8 +9,9 @@ class AppaCat {
     this.bubbleContent = null;
     
     // Physics & State
-    this.x = window.innerWidth / 2;
-    this.y = window.innerHeight - 50;
+    this.followCursor = false; // Standby by default
+    this.x = window.innerWidth - 80; // Start at bottom right
+    this.y = window.innerHeight - 80;
     this.targetX = this.x;
     this.targetY = this.y;
     this.speed = 4;
@@ -89,8 +90,11 @@ class AppaCat {
     
     this.bubble.innerHTML = `
       <div class="appa-bubble-header">
-        Appa 🐾
-        <span class="appa-close-btn" id="appa-close">&times;</span>
+        <span>Appa 🐾</span>
+        <div>
+          <button id="appa-toggle-follow" style="font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid #7C3AED; background:white; color:#7C3AED; cursor:pointer; margin-right:8px;">Mode: Standby</button>
+          <span class="appa-close-btn" id="appa-close">&times;</span>
+        </div>
       </div>
       <div class="appa-bubble-content" id="appa-content">...</div>
     `;
@@ -119,11 +123,13 @@ class AppaCat {
     this.lastMouseY = 0;
 
     document.addEventListener('mousemove', (e) => {
+      if (!this.followCursor) return; // Ignore mouse if standby mode
+
       const mouseDx = Math.abs(e.clientX - this.lastMouseX);
       const mouseDy = Math.abs(e.clientY - this.lastMouseY);
       
       // Only react if mouse moved significantly (avoids micro-jitter wakes)
-      if (mouseDx > 5 || mouseDy > 5) {
+      if (mouseDx > 10 || mouseDy > 10) {
         this.lastMouseX = e.clientX;
         this.lastMouseY = e.clientY;
         
@@ -139,6 +145,23 @@ class AppaCat {
         }
       }
     });
+
+    // Toggle Follow logic
+    const toggleFollowBtn = document.getElementById('appa-toggle-follow');
+    if (toggleFollowBtn) {
+      toggleFollowBtn.addEventListener('click', () => {
+        this.followCursor = !this.followCursor;
+        toggleFollowBtn.innerText = this.followCursor ? "Mode: Ikut Kursor" : "Mode: Standby";
+        
+        if (!this.followCursor) {
+          // Send Appa back to corner when standby
+          this.targetX = window.innerWidth - 80;
+          this.targetY = window.innerHeight - 80;
+          this.idleTime = 0;
+          this.setSprite('alert', 0);
+        }
+      });
+    }
 
     // Clicking Appa toggles bubble
     this.sprite.addEventListener('click', () => {
@@ -295,10 +318,10 @@ class AppaCat {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     // If close enough to target, stop and idle
-    if (distance < 20) {
+    if (distance < 10) {
       this.idleTime++;
       
-      if (this.idleTime > 150) { // Sleep after a while
+      if (this.idleTime > 200) { // Sleep after a while of not moving
         this.state = 'sleep';
         this.setSprite('sleep', Math.floor(this.frameCount / 20));
       } else {

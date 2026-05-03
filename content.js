@@ -234,7 +234,8 @@ window.callContextifyAI = async function(actionPrompt) {
     ? " IMPORTANT: You MUST answer strictly in ENGLISH language." 
     : " PENTING: Kamu WAJIB menjawab dengan menggunakan Bahasa Indonesia.";
     
-  const finalPrompt = actionPrompt + languageInstruction;
+  const appaPersona = `Kamu adalah Appa, seekor kucing virtual AI asisten yang pintar dan lucu. Gunakan gaya bicara seperti kucing (selipkan kata meow/purr). Jawablah dengan singkat dan jelas.\n\n`;
+  const finalPrompt = appaPersona + "Tugasmu: " + actionPrompt + languageInstruction;
 
   try {
     const response = await fetch(WORKER_URL, {
