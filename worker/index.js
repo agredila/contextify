@@ -27,7 +27,8 @@ export default {
       const GEMINI_API_KEY = env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY";
       
       if (GEMINI_API_KEY === "YOUR_GEMINI_API_KEY") {
-         return new Response("API Key not configured in Worker (Version 2)", { status: 500, headers: corsHeaders });
+         const availableEnvKeys = Object.keys(env).join(", ");
+         return new Response(`API Key not configured in Worker. Available env keys: ${availableEnvKeys}`, { status: 500, headers: corsHeaders });
       }
 
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
