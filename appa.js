@@ -43,7 +43,28 @@ class AppaCat {
     }, 1000);
   }
 
-  injectDOM() {
+  renderActionButtons() {
+    if (!this.actionContainer || !window.currentMode) return;
+    this.actionContainer.innerHTML = '';
+    
+    // Only show buttons if there's text selected or if we want them always available
+    const lang = window.targetLanguage || 'id';
+    
+    window.currentMode.actions.forEach(action => {
+      const label = action[lang] ? action[lang].label : action.id.label;
+      const prompt = action[lang] ? action[lang].prompt : action.id.prompt;
+
+      const btn = document.createElement('button');
+      btn.className = 'appa-context-btn';
+      btn.innerText = label;
+      btn.addEventListener('click', () => {
+         if (window.callContextifyAI) {
+            window.callContextifyAI(prompt);
+         }
+      });
+      this.actionContainer.appendChild(btn);
+    });
+  }
     // Container
     this.container = document.createElement('div');
     this.container.id = 'appa-container';
@@ -62,18 +83,28 @@ class AppaCat {
     this.bubble = document.createElement('div');
     this.bubble.id = 'appa-bubble';
     
+    // Render Action Buttons inside Bubble
+    this.actionContainer = document.createElement('div');
+    this.actionContainer.className = 'appa-actions-container';
+    
     this.bubble.innerHTML = `
       <div class="appa-bubble-header">
         Appa 🐾
         <span class="appa-close-btn" id="appa-close">&times;</span>
       </div>
       <div class="appa-bubble-content" id="appa-content">...</div>
-      <div class="appa-input-wrapper">
+    `;
+    this.bubble.appendChild(this.actionContainer);
+    
+    // Add input wrapper
+    const inputWrapper = document.createElement('div');
+    inputWrapper.className = 'appa-input-wrapper';
+    inputWrapper.innerHTML = `
         <button class="appa-action-btn appa-mic-btn" id="appa-mic">🎤</button>
         <input type="text" id="appa-chat-input" placeholder="Tanya Appa...">
         <button class="appa-action-btn" id="appa-send">➤</button>
-      </div>
     `;
+    this.bubble.appendChild(inputWrapper);
 
     this.container.appendChild(this.sprite);
     this.container.appendChild(this.bubble);
@@ -84,15 +115,27 @@ class AppaCat {
 
   bindEvents() {
     // Mouse tracking
+    this.lastMouseX = 0;
+    this.lastMouseY = 0;
+
     document.addEventListener('mousemove', (e) => {
-      // Only track if not hovering over Appa's bubble
-      if (!this.bubble.contains(e.target) && !this.sprite.contains(e.target)) {
-        this.targetX = e.clientX;
-        this.targetY = e.clientY - 20; // Aim slightly above cursor
-        this.idleTime = 0;
+      const mouseDx = Math.abs(e.clientX - this.lastMouseX);
+      const mouseDy = Math.abs(e.clientY - this.lastMouseY);
+      
+      // Only react if mouse moved significantly (avoids micro-jitter wakes)
+      if (mouseDx > 5 || mouseDy > 5) {
+        this.lastMouseX = e.clientX;
+        this.lastMouseY = e.clientY;
         
-        if (this.state === 'sleep') {
-          this.setSprite('alert', 0);
+        // Only track if not hovering over Appa's bubble
+        if (!this.bubble.contains(e.target) && !this.sprite.contains(e.target)) {
+          this.targetX = e.clientX;
+          this.targetY = e.clientY - 20; // Aim slightly above cursor
+          this.idleTime = 0;
+          
+          if (this.state === 'sleep') {
+            this.setSprite('alert', 0);
+          }
         }
       }
     });
@@ -252,7 +295,7 @@ class AppaCat {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     // If close enough to target, stop and idle
-    if (distance < 50) {
+    if (distance < 20) {
       this.idleTime++;
       
       if (this.idleTime > 150) { // Sleep after a while
@@ -265,12 +308,15 @@ class AppaCat {
       return;
     }
 
-    // Move towards target
+    // Move towards target smoothly
     this.state = 'moving';
     this.idleTime = 0;
     
-    const vx = (dx / distance) * this.speed;
-    const vy = (dy / distance) * this.speed;
+    // Dampening factor for smoother tracking (lerp-like)
+    const speedMultiplier = Math.min(this.speed, distance * 0.1);
+    
+    const vx = (dx / distance) * speedMultiplier;
+    const vy = (dy / distance) * speedMultiplier;
     
     this.x += vx;
     this.y += vy;

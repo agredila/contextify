@@ -19,7 +19,6 @@
         "<all_urls>"
       ],
       "css": [
-        "sidebar.css",
         "appa.css"
       ],
       "js": [

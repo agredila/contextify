@@ -113,79 +113,29 @@ let targetLanguage = 'id'; // 'id' for Indonesian, 'en' for English
 
 // --- Initialization ---
 function init() {
-  window.targetLanguage = targetLanguage;
   detectMode();
+  injectUI();
+  updateUsageDisplay();
+  
+  // Set initial language UI
+  updateLanguageUI();
 }
 
 function detectMode() {
   const hostname = window.location.hostname;
-  currentMode = MODES.RESEARCH; // Default fallback
   
   for (const key in MODES) {
     if (MODES[key].domains.some(domain => hostname.includes(domain))) {
       currentMode = MODES[key];
-      break;
+      return;
     }
   }
   
-  window.currentMode = currentMode;
-  if (typeof appaInstance !== 'undefined') { appaInstance.renderActionButtons(); }
+  // Default fallback
+  currentMode = MODES.RESEARCH;
 }
 
 // --- Context Extraction ---
-window.getContext = async function() {
-  // 0. Try Manual Input first (Appa's input)
-  const manualInput = document.getElementById('appa-chat-input');
-  // ... rest handled later. Let's rewrite getContext
-  if (manualInput && manualInput.value.trim() !== '') {
-    // If the user typed a specific command into Appa, don't treat it as document context
-    // This is handled by Appa's chat. 
-  }
-
-  // 1. Try User Selection (Most reliable everywhere)
-  const selection = window.getSelection().toString().trim();
-  if (selection) {
-    return selection;
-  }
-  
-  // 2. Determine if we are looking at a PDF
-  const isPDF = window.location.pathname.toLowerCase().endsWith('.pdf') || document.contentType === 'application/pdf';
-  
-  if (isPDF) {
-    // If it's a PDF and user didn't select text (or Chrome blocked getSelection)
-    try {
-      // Try to read from clipboard as a fallback for PDF viewer selection blocking
-      const clipboardText = await navigator.clipboard.readText();
-      if (clipboardText && clipboardText.trim().length > 5) {
-        return clipboardText.trim();
-      }
-    } catch (e) {
-      console.warn("Clipboard read failed, asking user to use manual input.");
-    }
-
-    const errorMsg = targetLanguage === 'en' 
-      ? "Chrome system blocked automatic PDF reading. Please copy the text and ask me directly."
-      : "Sistem Chrome memblokir pembacaan PDF otomatis. Silakan Copy teksnya lalu tanyakan ke Appa langsung.";
-    if (typeof appaInstance !== 'undefined') appaInstance.say(errorMsg);
-    return null;
-  }
-  
-  // 3. Fallback for normal websites
-  const title = document.title;
-  let bodyText = document.body.innerText;
-  
-  // Clean up excessive whitespace
-  if (bodyText) {
-     bodyText = bodyText.replace(/\s+/g, ' ').substring(0, 5000);
-  }
-  
-  if (!bodyText || bodyText.trim() === '') {
-    return null;
-  }
-  
-  return `Title: ${title}\n\nContent:\n${bodyText}`;
-}
-
 // --- Storage & Usage Tracking ---
 async function getUsage() {
   return new Promise((resolve) => {
@@ -215,26 +165,28 @@ async function incrementUsage() {
 }
 
 // --- API Integration ---
-window.callContextifyAI = async function(actionPrompt) {
+async function callAI(basePrompt) {
   const usage = await getUsage();
   if (usage.actionsUsed >= MAX_ACTIONS_PER_MONTH) {
-    if (typeof appaInstance !== 'undefined') appaInstance.say("Meow! Upgrade ke Pro — Rp 49.000/bulan");
+    showError("Upgrade ke Pro — Rp 49.000/bulan");
     return;
   }
 
-  if (typeof appaInstance !== 'undefined') appaInstance.say("*Berpikir...*");
+  showLoading(true);
 
-  const context = await window.getContext();
+  const context = await getContext();
   if (!context) {
-    if (typeof appaInstance !== 'undefined') appaInstance.say("Meow? Aku tidak menemukan teks untuk dianalisis di layar ini.");
+    showLoading(false);
+    showError("Tidak ada teks yang ditemukan untuk dianalisis.");
     return;
   }
 
+  // Append language instruction to the prompt
   const languageInstruction = targetLanguage === 'en' 
     ? " IMPORTANT: You MUST answer strictly in ENGLISH language." 
     : " PENTING: Kamu WAJIB menjawab dengan menggunakan Bahasa Indonesia.";
     
-  const finalPrompt = actionPrompt + languageInstruction;
+  const finalPrompt = basePrompt + languageInstruction;
 
   try {
     const response = await fetch(WORKER_URL, {
@@ -249,16 +201,225 @@ window.callContextifyAI = async function(actionPrompt) {
     if (!response.ok) throw new Error('API Error');
 
     const data = await response.text();
-    const formattedData = data.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-    if (typeof appaInstance !== 'undefined') appaInstance.say(formattedData);
+    showResult(data);
     
     await incrementUsage();
+    updateUsageDisplay();
   } catch (error) {
-    if (typeof appaInstance !== 'undefined') appaInstance.say("Terjadi kesalahan meow. Tidak bisa memanggil server.");
+    showError("Terjadi kesalahan saat menghubungi AI. Pastikan Worker URL sudah di-setup.");
+  } finally {
+    showLoading(false);
   }
-};
+}
 
 // --- UI Injection ---
+function injectUI() {
+  // Toggle Button
+  const toggleBtn = document.createElement('div');
+  toggleBtn.id = 'ctx-toggle-btn';
+  toggleBtn.innerHTML = '✦';
+  toggleBtn.addEventListener('click', toggleSidebar);
+  document.body.appendChild(toggleBtn);
+
+  // Sidebar Container
+  const sidebar = document.createElement('div');
+  sidebar.id = 'ctx-sidebar';
+  
+  // Header
+  const header = document.createElement('div');
+  header.className = 'ctx-header';
+  
+  // Safe initial name check
+  const defaultModeName = currentMode && currentMode.name && currentMode.name[targetLanguage] 
+    ? currentMode.name[targetLanguage] 
+    : (currentMode.name ? currentMode.name.id : 'Contextify');
+
+  header.innerHTML = `
+    <div class="ctx-mode-badge">
+      <span class="ctx-icon">${currentMode.icon}</span>
+      <span class="ctx-mode-name">${defaultModeName}</span>
+    </div>
+    <div class="ctx-header-actions">
+      <select id="ctx-lang-toggle" class="ctx-lang-select">
+        <option value="id" ${targetLanguage === 'id' ? 'selected' : ''}>🇮🇩 ID</option>
+        <option value="en" ${targetLanguage === 'en' ? 'selected' : ''}>🇬🇧 EN</option>
+      </select>
+      <div class="ctx-close" id="ctx-close-btn">&times;</div>
+    </div>
+  `;
+  sidebar.appendChild(header);
+
+  // Usage Counter
+  const usageDiv = document.createElement('div');
+  usageDiv.id = 'ctx-usage-counter';
+  usageDiv.className = 'ctx-usage';
+  sidebar.appendChild(usageDiv);
+
+  // Action Buttons Container
+  const actionsContainer = document.createElement('div');
+  actionsContainer.className = 'ctx-actions';
+  actionsContainer.id = 'ctx-actions-container';
+  
+  // Manual Input Area
+  const manualInputDiv = document.createElement('div');
+  manualInputDiv.className = 'ctx-manual-input-container';
+  manualInputDiv.innerHTML = `<textarea id="ctx-manual-input" class="ctx-manual-input" placeholder="Tempel/Paste teks di sini jika tidak terdeteksi otomatis..."></textarea>`;
+  actionsContainer.appendChild(manualInputDiv);
+
+  sidebar.appendChild(actionsContainer);
+
+  // Render initial action buttons
+  renderActionButtons();
+
+  // Loading State
+  const loadingDiv = document.createElement('div');
+  loadingDiv.id = 'ctx-loading';
+  loadingDiv.className = 'ctx-loading ctx-hidden';
+  loadingDiv.innerText = 'Memproses...';
+  sidebar.appendChild(loadingDiv);
+
+  // Result Area
+  const resultContainer = document.createElement('div');
+  resultContainer.id = 'ctx-result-container';
+  resultContainer.className = 'ctx-result-container ctx-hidden';
+  
+  const resultText = document.createElement('div');
+  resultText.id = 'ctx-result-text';
+  resultText.className = 'ctx-result-text';
+  
+  const copyBtn = document.createElement('button');
+  copyBtn.id = 'ctx-copy-btn';
+  copyBtn.className = 'ctx-copy-btn';
+  copyBtn.innerText = 'Copy';
+  copyBtn.addEventListener('click', () => copyToClipboard());
+
+  resultContainer.appendChild(resultText);
+  resultContainer.appendChild(copyBtn);
+  sidebar.appendChild(resultContainer);
+
+  document.body.appendChild(sidebar);
+
+  // Bind events
+  document.getElementById('ctx-close-btn').addEventListener('click', toggleSidebar);
+  document.getElementById('ctx-lang-toggle').addEventListener('change', (e) => {
+    targetLanguage = e.target.value;
+    updateLanguageUI();
+  });
+}
+
+function updateLanguageUI() {
+  // Update Header Name
+  const modeNameEl = document.querySelector('.ctx-mode-name');
+  if (modeNameEl && currentMode.name && currentMode.name[targetLanguage]) {
+    modeNameEl.innerText = currentMode.name[targetLanguage];
+  }
+
+  // Update Manual Input Placeholder
+  const manualInput = document.getElementById('ctx-manual-input');
+  if (manualInput) {
+    manualInput.placeholder = targetLanguage === 'en' 
+      ? "Paste text here if automatic detection fails..." 
+      : "Tempel/Paste teks di sini jika tidak terdeteksi otomatis...";
+  }
+
+  // Re-render buttons
+  renderActionButtons();
+}
+
+function renderActionButtons() {
+  const container = document.getElementById('ctx-actions-container');
+  if (!container) return;
+
+  // Remove existing action buttons (but keep the manual input container which is the first child)
+  const existingBtns = container.querySelectorAll('.ctx-action-btn');
+  existingBtns.forEach(btn => btn.remove());
+
+  // Add new buttons based on language
+  currentMode.actions.forEach(action => {
+    // Failsafe in case the structure is incorrect
+    const label = action[targetLanguage] ? action[targetLanguage].label : action.id.label;
+    const prompt = action[targetLanguage] ? action[targetLanguage].prompt : action.id.prompt;
+
+    const btn = document.createElement('button');
+    btn.className = 'ctx-action-btn';
+    btn.innerText = label;
+    btn.addEventListener('click', () => callAI(prompt));
+    container.appendChild(btn);
+  });
+}
+
+// --- UI Actions ---
+function toggleSidebar() {
+  const sidebar = document.getElementById('ctx-sidebar');
+  isSidebarOpen = !isSidebarOpen;
+  
+  if (isSidebarOpen) {
+    sidebar.classList.add('ctx-open');
+    updateUsageDisplay(); // Refresh usage when opening
+  } else {
+    sidebar.classList.remove('ctx-open');
+  }
+}
+
+async function updateUsageDisplay() {
+  const usageDiv = document.getElementById('ctx-usage-counter');
+  if (!usageDiv) return;
+
+  const usage = await getUsage();
+  
+  if (usage.actionsUsed >= MAX_ACTIONS_PER_MONTH) {
+    usageDiv.innerHTML = `<span class="ctx-limit-reached">Upgrade ke Pro — Rp 49.000/bulan</span>`;
+    // Disable buttons
+    document.querySelectorAll('.ctx-action-btn').forEach(btn => btn.disabled = true);
+  } else {
+    // Hide usage counter since it's unlimited for now, or just show "Unlimited for Personal Use"
+    usageDiv.innerHTML = `<span style="color: var(--ctx-primary); font-weight: 500;">Unlimited Personal Mode</span>`;
+    // Enable buttons
+    document.querySelectorAll('.ctx-action-btn').forEach(btn => btn.disabled = false);
+  }
+}
+
+function showLoading(isLoading) {
+  const loading = document.getElementById('ctx-loading');
+  const resultContainer = document.getElementById('ctx-result-container');
+  
+  if (isLoading) {
+    loading.innerText = 'Memproses...'; // Reset text
+    loading.classList.remove('ctx-hidden');
+    resultContainer.classList.add('ctx-hidden');
+  } else {
+    loading.classList.add('ctx-hidden');
+  }
+}
+
+function showResult(text) {
+  const resultContainer = document.getElementById('ctx-result-container');
+  const resultText = document.getElementById('ctx-result-text');
+  const copyBtn = document.getElementById('ctx-copy-btn');
+  
+  resultText.innerText = text;
+  copyBtn.innerText = 'Copy';
+  resultContainer.classList.remove('ctx-hidden');
+}
+
+function showError(message) {
+  const resultContainer = document.getElementById('ctx-result-container');
+  const resultText = document.getElementById('ctx-result-text');
+  const copyBtn = document.getElementById('ctx-copy-btn');
+  
+  resultText.innerHTML = `<span style="color: #ef4444;">${message}</span>`;
+  copyBtn.style.display = 'none'; // Hide copy button on error
+  resultContainer.classList.remove('ctx-hidden');
+}
+
+function copyToClipboard() {
+  const text = document.getElementById('ctx-result-text').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const copyBtn = document.getElementById('ctx-copy-btn');
+    copyBtn.innerText = 'Copied!';
+    setTimeout(() => { copyBtn.innerText = 'Copy'; }, 2000);
+  });
+}
 
 // Run initialization
 if (document.readyState === 'loading') {
@@ -266,37 +427,3 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
-
-// --- Appa AI Integration (Phase 2 & 3 Link) ---
-window.askAppaAI = async function(question) {
-  if (typeof appaInstance === 'undefined') return;
-  
-  const systemPrompt = `Kamu adalah Appa, seekor kucing virtual AI asisten yang pintar, lucu, dan selalu menggunakan nada bicara seperti kucing (tambahkan meow atau purr sesekali). 
-  Jawablah pertanyaan user berikut secara singkat dan jelas (maksimal 2-3 paragraf pendek) agar muat di dalam speech bubble UI kamu.
-  Pertanyaan user: ${question}`;
-
-  try {
-    const response = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: question,
-        systemPrompt: systemPrompt
-      })
-    });
-
-    if (!response.ok) throw new Error('API Error');
-
-    const data = await response.text();
-    // Parse Markdown simply for the bubble (bolding and line breaks)
-    const formattedData = data.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-    appaInstance.say(formattedData);
-    
-  } catch (error) {
-    appaInstance.say("Meow! Aku kesulitan menghubungi server otakku. Coba lagi nanti.");
-  }
-};
-
-window.executeAppaLocalTask = async function(taskString) {
-  appaInstance.say(`Sedang mencoba mengeksekusi: ${taskString}...<br><br><span style="color:red;font-size:10px;">[System: Backend Local Node.js (Phase 3) belum di-setup di Mac Anda]</span>`);
-};
