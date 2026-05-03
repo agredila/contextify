@@ -610,3 +610,38 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+// --- Appa AI Integration (Phase 2 & 3 Link) ---
+window.askAppaAI = async function(question) {
+  if (typeof appaInstance === 'undefined') return;
+  
+  const systemPrompt = `Kamu adalah Appa, seekor kucing virtual AI asisten yang pintar, lucu, dan selalu menggunakan nada bicara seperti kucing (tambahkan meow atau purr sesekali). 
+  Jawablah pertanyaan user berikut secara singkat dan jelas (maksimal 2-3 paragraf pendek) agar muat di dalam speech bubble UI kamu.
+  Pertanyaan user: ${question}`;
+
+  try {
+    const response = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: question,
+        systemPrompt: systemPrompt
+      })
+    });
+
+    if (!response.ok) throw new Error('API Error');
+
+    const data = await response.text();
+    // Parse Markdown simply for the bubble (bolding)
+    const formattedData = data.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    appaInstance.say(formattedData);
+    
+  } catch (error) {
+    appaInstance.say("Meow! Aku kesulitan menghubungi server otakku. Coba lagi nanti.");
+  }
+};
+
+window.executeAppaLocalTask = async function(taskString) {
+  // This will connect to the localhost Node.js server in Phase 3
+  appaInstance.say(`Sedang mencoba mengeksekusi: ${taskString}...<br><br><span style="color:red;font-size:10px;">[System: Backend Local Node.js (Phase 3) belum di-setup di Mac Anda]</span>`);
+};

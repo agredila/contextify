@@ -112,25 +112,107 @@ class AppaCat {
       this.hideBubble();
     });
 
-    // Chat functionality (Placeholder for Phase 2)
+    // Chat functionality
     const input = document.getElementById('appa-chat-input');
     const sendBtn = document.getElementById('appa-send');
+    const micBtn = document.getElementById('appa-mic');
 
     sendBtn.addEventListener('click', () => this.handleChat(input.value));
     input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') this.handleChat(input.value);
     });
+
+    // Voice functionality (Web Speech API)
+    if ('webkitSpeechRecognition' in window) {
+      this.recognition = new webkitSpeechRecognition();
+      this.recognition.continuous = false;
+      this.recognition.interimResults = false;
+      this.recognition.lang = 'id-ID'; // Default to Indonesian
+
+      this.recognition.onstart = () => {
+        micBtn.classList.add('listening');
+        input.placeholder = "Mendengarkan...";
+      };
+
+      this.recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        input.value = transcript;
+        this.handleChat(transcript);
+      };
+
+      this.recognition.onerror = (event) => {
+        console.error("Speech recognition error", event.error);
+        this.say("Meow? Aku gak denger jelas. Coba lagi.");
+        micBtn.classList.remove('listening');
+        input.placeholder = "Tanya Appa...";
+      };
+
+      this.recognition.onend = () => {
+        micBtn.classList.remove('listening');
+        input.placeholder = "Tanya Appa...";
+      };
+
+      micBtn.addEventListener('click', () => {
+        if (micBtn.classList.contains('listening')) {
+          this.recognition.stop();
+        } else {
+          this.recognition.start();
+        }
+      });
+    } else {
+      micBtn.style.display = 'none'; // Hide if not supported
+    }
   }
 
   handleChat(text) {
     if (!text.trim()) return;
     document.getElementById('appa-chat-input').value = '';
-    this.say(`*Berpikir tentang: "${text}"*...`);
     
-    // Call AI in the background (will connect to main content.js later)
-    if (window.askAppa) {
-      window.askAppa(text);
+    // Check for explicit local commands
+    if (text.toLowerCase().includes("rapihkan") || text.toLowerCase().includes("pindahkan")) {
+      this.say(`*Memeriksa file lokal...*`);
+      this.promptLocalAction(text);
+      return;
     }
+
+    this.say(`*Berpikir...*`);
+    
+    // Call AI in the background
+    if (window.askAppaAI) {
+      window.askAppaAI(text);
+    } else {
+      this.say("Ekstensi utama belum siap. Tunggu sebentar meow.");
+    }
+  }
+
+  // Phase 3 Preview: Local Action Prompt
+  promptLocalAction(taskString) {
+    this.bubbleContent.innerHTML = `
+      Menurutku kamu ingin mengubah file lokal di Mac.<br><br>
+      <b>Tugas:</b> "${taskString}"<br><br>
+      Izinkan Appa menjalankan script ini?
+    `;
+    
+    const confirmDiv = document.createElement('div');
+    confirmDiv.className = 'appa-confirm-actions';
+    confirmDiv.innerHTML = `
+      <button class="appa-btn-yes">Izinkan</button>
+      <button class="appa-btn-no">Batal</button>
+    `;
+    
+    this.bubbleContent.appendChild(confirmDiv);
+
+    confirmDiv.querySelector('.appa-btn-yes').addEventListener('click', () => {
+       if (window.executeAppaLocalTask) {
+          window.executeAppaLocalTask(taskString);
+       } else {
+          this.say("Server lokal (Node.js) belum terhubung! Install desktop agent dulu meow.");
+       }
+    });
+
+    confirmDiv.querySelector('.appa-btn-no').addEventListener('click', () => {
+       this.say("Oke, dibatalkan! Meow.");
+    });
   }
 
   say(text, autoHide = false) {
