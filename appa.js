@@ -10,11 +10,11 @@ class AppaCat {
     
     // Physics & State
     this.followCursor = false; // Standby by default
-    this.x = window.innerWidth - 80; // Start at bottom right
-    this.y = window.innerHeight - 80;
+    this.x = window.innerWidth - 100; // Start at bottom right
+    this.y = window.innerHeight - 100;
     this.targetX = this.x;
     this.targetY = this.y;
-    this.speed = 4;
+    this.speed = 5;
     this.idleTime = 0;
     this.state = 'idle'; // idle, moving, sleeping
     this.frameCount = 0;
@@ -125,13 +125,24 @@ class AppaCat {
     this.lastMouseY = 0;
 
     document.addEventListener('mousemove', (e) => {
-      if (!this.followCursor) return; // Ignore mouse if standby mode
+      // Allow wake up from sleep even in standby (just looks around, doesn't follow)
+      if (this.state === 'sleep' && !this.bubble.contains(e.target) && !this.sprite.contains(e.target)) {
+          const mDx = Math.abs(e.clientX - this.lastMouseX);
+          const mDy = Math.abs(e.clientY - this.lastMouseY);
+          if (mDx > 20 || mDy > 20) {
+             this.setSprite('alert', 0);
+             this.idleTime = 0;
+             this.state = 'idle';
+          }
+      }
+
+      if (!this.followCursor) return; // Ignore movement target if standby mode
 
       const mouseDx = Math.abs(e.clientX - this.lastMouseX);
       const mouseDy = Math.abs(e.clientY - this.lastMouseY);
       
       // Only react if mouse moved significantly (avoids micro-jitter wakes)
-      if (mouseDx > 10 || mouseDy > 10) {
+      if (mouseDx > 5 || mouseDy > 5) {
         this.lastMouseX = e.clientX;
         this.lastMouseY = e.clientY;
         
@@ -140,10 +151,7 @@ class AppaCat {
           this.targetX = e.clientX;
           this.targetY = e.clientY - 20; // Aim slightly above cursor
           this.idleTime = 0;
-          
-          if (this.state === 'sleep') {
-            this.setSprite('alert', 0);
-          }
+          this.state = 'moving';
         }
       }
     });
@@ -323,10 +331,10 @@ class AppaCat {
     if (distance < 10) {
       this.idleTime++;
       
-      if (this.idleTime > 200) { // Sleep after a while of not moving
+      if (this.idleTime > 300) { // Sleep after a longer while of not moving
         this.state = 'sleep';
-        this.setSprite('sleep', Math.floor(this.frameCount / 20));
-      } else {
+        this.setSprite('sleep', Math.floor(this.frameCount / 30));
+      } else if (this.state !== 'sleep') {
         this.state = 'idle';
         this.setSprite('idle', 0);
       }
@@ -338,7 +346,8 @@ class AppaCat {
     this.idleTime = 0;
     
     // Dampening factor for smoother tracking (lerp-like)
-    const speedMultiplier = Math.min(this.speed, distance * 0.1);
+    // Speed increases if cursor is further away, but capped at this.speed
+    const speedMultiplier = Math.max(1, Math.min(this.speed, distance * 0.05));
     
     const vx = (dx / distance) * speedMultiplier;
     const vy = (dy / distance) * speedMultiplier;
