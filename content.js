@@ -201,9 +201,6 @@ async function getContext() {
         const loadingDiv = document.getElementById('ctx-loading');
         if (loadingDiv) loadingDiv.innerText = 'Mencoba membaca PDF...';
 
-        // Wait a small bit in case the PDF text layer is rendering
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
         // Let's try PDF.js background extraction (Strategy B)
         if (typeof pdfjsLib !== 'undefined' && window.location.protocol.startsWith('http')) {
           if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
