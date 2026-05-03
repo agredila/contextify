@@ -66,6 +66,8 @@ class AppaCat {
       this.actionContainer.appendChild(btn);
     });
   }
+
+  injectDOM() {
     // Container
     this.container = document.createElement('div');
     this.container.id = 'appa-container';
