@@ -116,6 +116,9 @@ function init() {
   detectMode();
   injectUI();
   updateUsageDisplay();
+  
+  // Set initial language UI
+  updateLanguageUI();
 }
 
 function detectMode() {
@@ -340,15 +343,21 @@ function injectUI() {
   // Header
   const header = document.createElement('div');
   header.className = 'ctx-header';
+  
+  // Safe initial name check
+  const defaultModeName = currentMode && currentMode.name && currentMode.name[targetLanguage] 
+    ? currentMode.name[targetLanguage] 
+    : (currentMode.name ? currentMode.name.id : 'Contextify');
+
   header.innerHTML = `
     <div class="ctx-mode-badge">
       <span class="ctx-icon">${currentMode.icon}</span>
-      <span class="ctx-mode-name">${currentMode.name}</span>
+      <span class="ctx-mode-name">${defaultModeName}</span>
     </div>
     <div class="ctx-header-actions">
       <select id="ctx-lang-toggle" class="ctx-lang-select">
-        <option value="id">🇮🇩 ID</option>
-        <option value="en">🇬🇧 EN</option>
+        <option value="id" ${targetLanguage === 'id' ? 'selected' : ''}>🇮🇩 ID</option>
+        <option value="en" ${targetLanguage === 'en' ? 'selected' : ''}>🇬🇧 EN</option>
       </select>
       <div class="ctx-close" id="ctx-close-btn">&times;</div>
     </div>
@@ -416,7 +425,7 @@ function injectUI() {
 function updateLanguageUI() {
   // Update Header Name
   const modeNameEl = document.querySelector('.ctx-mode-name');
-  if (modeNameEl) {
+  if (modeNameEl && currentMode.name && currentMode.name[targetLanguage]) {
     modeNameEl.innerText = currentMode.name[targetLanguage];
   }
 
@@ -442,10 +451,14 @@ function renderActionButtons() {
 
   // Add new buttons based on language
   currentMode.actions.forEach(action => {
+    // Failsafe in case the structure is incorrect
+    const label = action[targetLanguage] ? action[targetLanguage].label : action.id.label;
+    const prompt = action[targetLanguage] ? action[targetLanguage].prompt : action.id.prompt;
+
     const btn = document.createElement('button');
     btn.className = 'ctx-action-btn';
-    btn.innerText = action[targetLanguage].label;
-    btn.addEventListener('click', () => callAI(action[targetLanguage].prompt));
+    btn.innerText = label;
+    btn.addEventListener('click', () => callAI(prompt));
     container.appendChild(btn);
   });
 }
