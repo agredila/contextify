@@ -1,5 +1,5 @@
 // --- Configuration ---
-const WORKER_URL = "YOUR_WORKER_URL";
+const WORKER_URL = "https://contextify.nadilasetiabudiarto.workers.dev/";
 const MAX_ACTIONS_PER_MONTH = 20;
 
 // --- Modes & Prompts Configuration ---
