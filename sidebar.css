@@ -88,6 +88,28 @@
   font-size: 16px;
 }
 
+.ctx-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ctx-lang-select {
+  background-color: var(--ctx-surface);
+  border: 1px solid var(--ctx-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--ctx-text);
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+
+.ctx-lang-select:focus {
+  border-color: var(--ctx-primary);
+}
+
 .ctx-close {
   font-size: 24px;
   color: var(--ctx-text-light);

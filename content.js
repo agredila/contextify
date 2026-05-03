@@ -58,6 +58,7 @@ const MODES = {
 // --- State ---
 let currentMode = null;
 let isSidebarOpen = false;
+let targetLanguage = 'id'; // 'id' for Indonesian, 'en' for English
 
 // --- Initialization ---
 function init() {
@@ -180,7 +181,7 @@ async function incrementUsage() {
 }
 
 // --- API Integration ---
-async function callAI(actionPrompt) {
+async function callAI(basePrompt) {
   const usage = await getUsage();
   if (usage.actionsUsed >= MAX_ACTIONS_PER_MONTH) {
     showError("Upgrade ke Pro — Rp 49.000/bulan");
@@ -196,13 +197,20 @@ async function callAI(actionPrompt) {
     return;
   }
 
+  // Append language instruction to the prompt
+  const languageInstruction = targetLanguage === 'en' 
+    ? " IMPORTANT: You MUST answer strictly in ENGLISH language." 
+    : " PENTING: Kamu WAJIB menjawab dengan menggunakan Bahasa Indonesia.";
+    
+  const finalPrompt = basePrompt + languageInstruction;
+
   try {
     const response = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: context,
-        systemPrompt: actionPrompt
+        systemPrompt: finalPrompt
       })
     });
 
@@ -241,7 +249,13 @@ function injectUI() {
       <span class="ctx-icon">${currentMode.icon}</span>
       <span class="ctx-mode-name">${currentMode.name}</span>
     </div>
-    <div class="ctx-close" id="ctx-close-btn">&times;</div>
+    <div class="ctx-header-actions">
+      <select id="ctx-lang-toggle" class="ctx-lang-select">
+        <option value="id">🇮🇩 ID</option>
+        <option value="en">🇬🇧 EN</option>
+      </select>
+      <div class="ctx-close" id="ctx-close-btn">&times;</div>
+    </div>
   `;
   sidebar.appendChild(header);
 
@@ -292,8 +306,11 @@ function injectUI() {
 
   document.body.appendChild(sidebar);
 
-  // Bind close button event (after it's added to DOM)
+  // Bind events
   document.getElementById('ctx-close-btn').addEventListener('click', toggleSidebar);
+  document.getElementById('ctx-lang-toggle').addEventListener('change', (e) => {
+    targetLanguage = e.target.value;
+  });
 }
 
 // --- UI Actions ---
