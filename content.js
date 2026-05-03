@@ -187,66 +187,6 @@ async function getContext() {
   
   return `Title: ${title}\n\nContent:\n${bodyText}`;
 }
-  
-  // 2. Determine if we are looking at a PDF
-  const isPDF = window.location.pathname.toLowerCase().endsWith('.pdf') || document.contentType === 'application/pdf';
-  
-  if (isPDF) {
-    // PDF Strategy A: Try to extract from Chrome's Native PDF Viewer internal text layer
-    try {
-      const embed = document.querySelector('embed[type="application/pdf"]');
-      if (embed || document.body.innerText === '') {
-        // We are likely in Chrome's native viewer which hides text in a shadow DOM or plugin.
-        // Alert the user that for PDF, they need to select text manually as a fallback.
-        const loadingDiv = document.getElementById('ctx-loading');
-        if (loadingDiv) loadingDiv.innerText = 'Mencoba membaca PDF...';
-
-        // Let's try PDF.js background extraction (Strategy B)
-        if (typeof pdfjsLib !== 'undefined' && window.location.protocol.startsWith('http')) {
-          if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.js');
-          }
-          
-          const loadingTask = pdfjsLib.getDocument(window.location.href);
-          const pdf = await loadingTask.promise;
-          let fullText = '';
-          const maxPages = Math.min(pdf.numPages, 10); 
-          for (let i = 1; i <= maxPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            fullText += textContent.items.map(item => item.str).join(' ') + '\\n';
-          }
-          
-          if (fullText.trim().length > 0) {
-             if (loadingDiv) loadingDiv.innerText = 'Memproses dengan AI...';
-             return `[Dokumen PDF]\\n\\n${fullText.substring(0, 30000)}`;
-          }
-        }
-        
-        // If we reach here, PDF extraction failed (likely local file:/// or CORS issue)
-        throw new Error("Local PDF or CORS prevented extraction");
-      }
-    } catch (error) {
-      console.warn('Silent PDF extraction failed, asking user to select text manually.', error);
-      showError("Sistem Chrome memblokir pembacaan PDF otomatis. Silakan BLOCK/HIGHLIGHT teks di PDF terlebih dahulu lalu klik tombol.");
-      showLoading(false);
-      return null;
-    }
-  }
-  
-  // 3. Fallback for normal websites
-  const title = document.title;
-  let bodyText = document.body.innerText;
-  
-  // Clean up excessive whitespace
-  bodyText = bodyText.replace(/\\s+/g, ' ').substring(0, 5000);
-  
-  if (!bodyText || bodyText.trim() === '') {
-    return null;
-  }
-  
-  return `Title: ${title}\\n\\nContent:\\n${bodyText}`;
-}
 
 // --- Storage & Usage Tracking ---
 async function getUsage() {
